@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DVD Pong</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        #background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, #1a1a3d, #0d0d1f);
+            z-index: -1;
+            animation: wave 20s infinite linear;
+        }
+        @keyframes wave {
+            0% { background-position: 0 0; }
+            100% { background-position: 100px 100px; }
+        }
+        #gameArea {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border: 2px solid white;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        #dvd {
+            position: absolute;
+            width: 80px;
+            height: 40px;
+            background: white;
+            color: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        #paddle {
+            position: absolute;
+            width: 100px;
+            height: 20px;
+            background: white;
+            bottom: 20px;
+        }
+        #score {
+            font-size: 24px;
+            margin: 10px;
+        }
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            pointer-events: none;
+            animation: fall 2s linear forwards;
+        }
+        @keyframes fall {
+            to {
+                transform: translateY(100vh);
+                opacity: 0;
+            }
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #curtains {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            z-index: 10;
+        }
+        .curtain {
+            position: absolute;
+            width: 50%;
+            height: 100%;
+            background: #8B0000;
+            transition: transform 1s ease-in-out;
+        }
+        #leftCurtain {
+            left: 0;
+            transform: translateX(-100%);
+        }
+        #rightCurtain {
+            right: 0;
+            transform: translateX(100%);
+        }
+        #curtains.active #leftCurtain {
+            transform: translateX(0);
+        }
+        #curtains.active #rightCurtain {
+            transform: translateX(0);
+        }
+        #gameOverScreen {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            text-align: center;
+            border-radius: 10px;
+            z-index: 11;
+        }
+        #rulesPopup {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            max-width: 300px;
+            border-radius: 10px;
+            z-index: 12;
+        }
+        #rulesPopup .close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="background"></div>
+    <div id="score">Score: 0</div>
+    <div id="gameArea">
+        <div id="dvd">DVD</div>
+        <div id="paddle"></div>
+    </div>
+    <button id="robotBtn">Robot Mode</button>
+    <button id="rulesBtn">Rules</button>
+    <div id="curtains">
+        <div id="leftCurtain" class="curtain"></div>
+        <div id="rightCurtain" class="curtain"></div>
+    </div>
+    <div id="gameOverScreen">
+        <h1>GAME OVER</h1>
+        <p id="finalScore">Score: 0</p>
+        <button id="restartBtn">Restart</button>
+    </div>
+    <div id="rulesPopup">
+        <span class="close" id="closeRules">×</span>
+        <h2>Rules</h2>
+        <ul style="text-align: left;">
+            <li>Move paddle with mouse (Manual Mode)</li>
+            <li>1 point per paddle hit</li>
+            <li>100 points for corner hits</li>
+            <li>Game ends if DVD hits bottom</li>
+        </ul>
+        <p style="font-size: 12px;">Warning: Intense visual effects at higher levels may trigger photosensitivity in some players</p>
+    </div>
+    <script>
+        const gameArea = document.getElementById('gameArea');
+        const dvd = document.getElementById('dvd');
+        const paddle = document.getElementById('paddle');
+        const scoreDisplay = document.getElementById('score');
+        const robotBtn = document.getElementById('robotBtn');
+        const rulesBtn = document.getElementById('rulesBtn');
+        const rulesPopup = document.getElementById('rulesPopup');
+        const closeRules = document.getElementById('closeRules');
+        const curtains = document.getElementById('curtains');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const finalScore = document.getElementById('finalScore');
+        const restartBtn = document.getElementById('restartBtn');
+        
+        let x = 360;
+        let y = 280;
+        let dx = 3;
+        let dy = 3;
+        let paddleX = 350;
+        let score = 0;
+        let gameActive = true;
+        let robotMode = false;
+        const colors = ['red', 'green', 'blue', 'yellow', 'purple', 'orange'];
+
+        // Manual paddle control
+        document.addEventListener('mousemove', (e) => {
+            if (gameActive && !robotMode) {
+                const gameAreaRect = gameArea.getBoundingClientRect();
+                let newX = e.clientX - gameAreaRect.left - paddle.offsetWidth/2;
+                paddleX = Math.max(0, Math.min(newX, gameArea.offsetWidth - paddle.offsetWidth));
+                paddle.style.left = paddleX + 'px';
+            }
+        });
+
+        function createConfetti(x, y) {
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = x + 'px';
+                confetti.style.top = y + 'px';
+                confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                const angle = Math.random() * 360;
+                const distance = Math.random() * 100;
+                confetti.style.transform = `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`;
+                gameArea.appendChild(confetti);
+                setTimeout(() => confetti.remove(), 2000);
+            }
+        }
+
+        function gameOver() {
+            gameActive = false;
+            curtains.style.display = 'block';
+            setTimeout(() => {
+                curtains.classList.add('active');
+                setTimeout(() => {
+                    gameOverScreen.style.display = 'block';
+                    finalScore.textContent = `Score: ${score}`;
+                }, 1000);
+            }, 10);
+        }
+
+        function resetGame() {
+            x = 360;
+            y = 280;
+            dx = 3;
+            dy = 3;
+            paddleX = 350;
+            paddle.style.left = paddleX + 'px';
+            score = 0;
+            scoreDisplay.textContent = `Score: ${score}`;
+            gameOverScreen.style.display = 'none';
+            curtains.classList.remove('active');
+            setTimeout(() => {
+                curtains.style.display = 'none';
+                gameActive = true;
+                animate();
+            }, 1000);
+        }
+
+        function toggleRobotMode() {
+            robotMode = !robotMode;
+            robotBtn.textContent = robotMode ? 'Manual Mode' : 'Robot Mode';
+        }
+
+        function animate() {
+            if (!gameActive) return;
+
+            const gameWidth = gameArea.offsetWidth;
+            const gameHeight = gameArea.offsetHeight;
+            const dvdWidth = dvd.offsetWidth;
+            const dvdHeight = dvd.offsetHeight;
+            const paddleWidth = paddle.offsetWidth;
+            const paddleHeight = paddle.offsetHeight;
+
+            x += dx;
+            y += dy;
+
+            // Corner hits
+            const hitTopLeft = x <= 5 && y <= 5;
+            const hitTopRight = x + dvdWidth >= gameWidth - 5 && y <= 5;
+            const hitBottomLeft = x <= 5 && y + dvdHeight >= gameHeight - 5;
+            const hitBottomRight = x + dvdWidth >= gameWidth - 5 && y + dvdHeight >= gameHeight - 5;
+
+            if (hitTopLeft || hitTopRight || hitBottomLeft || hitBottomRight) {
+                score += 100;
+                scoreDisplay.textContent = `Score: ${score}`;
+                createConfetti(x + dvdWidth/2, y + dvdHeight/2);
+                dvd.style.background = colors[Math.floor(Math.random() * colors.length)];
+            }
+
+            // Bounce off walls
+            if (x + dvdWidth > gameWidth) {
+                dx = -Math.abs(dx);
+                x = gameWidth - dvdWidth;
+                dvd.style.background = colors[Math.floor(Math.random() * colors.length)];
+            } else if (x < 0) {
+                dx = Math.abs(dx);
+                x = 0;
+                dvd.style.background = colors[Math.floor(Math.random() * colors.length)];
+            }
+
+            if (y < 0) {
+                dy = Math.abs(dy);
+                y = 0;
+                dvd.style.background = colors[Math.floor(Math.random() * colors.length)];
+            }
+
+            // Robot mode paddle movement
+            if (robotMode) {
+                const targetX = x + dvdWidth/2 - paddleWidth/2;
+                paddleX += (targetX - paddleX) * 0.1; // Smooth following
+                paddleX = Math.max(0, Math.min(paddleX, gameWidth - paddleWidth));
+                paddle.style.left = paddleX + 'px';
+            }
+
+            // Paddle collision
+            const paddleTop = gameHeight - paddleHeight - 20;
+            if (y + dvdHeight > paddleTop && 
+                y + dvdHeight < paddleTop + paddleHeight + dy && 
+                x + dvdWidth > paddleX && 
+                x < paddleX + paddleWidth) {
+                dy = -Math.abs(dy);
+                score++;
+                scoreDisplay.textContent = `Score: ${score}`;
+                dvd.style.background = colors[Math.floor(Math.random() * colors.length)];
+                dx = dx > 0 ? dx + 0.1 : dx - 0.1;
+                dy = dy > 0 ? dy + 0.1 : dy - 0.1;
+            }
+
+            if (y + dvdHeight > gameHeight && !hitBottomLeft && !hitBottomRight) {
+                gameOver();
+                return;
+            }
+
+            dvd.style.left = x + 'px';
+            dvd.style.top = y + 'px';
+
+            requestAnimationFrame(animate);
+        }
+
+        robotBtn.addEventListener('click', toggleRobotMode);
+        rulesBtn.addEventListener('click', () => rulesPopup.style.display = 'block');
+        closeRules.addEventListener('click', () => rulesPopup.style.display = 'none');
+        restartBtn.addEventListener('click', resetGame);
+
+        paddle.style.left = paddleX + 'px';
+        animate();
+    </script>
+</body>
+</html>
