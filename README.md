@@ -4,6 +4,13 @@ A **nostalgic twist on Pong**, where you bounce a **DVD logo**, chase **corner h
 
 ![DVD Pong Gameplay](pong.gif)  
 
+
+[![pages-build-deployment](https://github.com/eudk/DVDPong/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/eudk/DVDPong/actions/workflows/pages/pages-build-deployment)
+[![GitHub Stars](https://img.shields.io/github/stars/eudk/DVDPong?style=social)](https://github.com/eudk/DVDPong)
+[![GitHub Contributors](https://img.shields.io/github/contributors/eudk/DVDPong)](https://github.com/eudk/DVDPong)
+[![Last Commit](https://img.shields.io/github/last-commit/eudk/DVDPong)](https://github.com/DVDPong)
+
+
 ## 🕹️ How to Play  
 🎮 **Manual Mode**: Move the paddle with your **mouse** to bounce the DVD logo.  
 🤖 **Robot Mode**: Click **"Robot Mode"** to let the paddle play **automatically** (toggle back anytime).  
